@@ -41,11 +41,18 @@
 
 ### 步驟 3：確認 URI 格式完全一致
 
-**重要**：URI 必須完全匹配，包括：
-- 協議（http vs https）
-- 主機名（localhost vs 127.0.0.1）
-- 端口號（如果有）
-- 路徑（結尾的 `/`）
+**根據 [Google 官方文件](https://developers.google.com/identity/protocols/oauth2/web-server?hl=zh-tw#authorization-errors-redirect-uri-mismatch)**，URI 必須**完全匹配**，包括：
+
+- ✅ **協議**（http vs https）
+- ✅ **主機名**（localhost vs 127.0.0.1）
+- ✅ **端口號**（如果有）
+- ✅ **路徑**（結尾的 `/`）
+- ✅ **大小寫**
+
+**關鍵點**：
+- `http://localhost` ≠ `http://localhost:8080`（端口號不同）
+- `http://localhost:8080` ≠ `http://localhost:8080/`（結尾斜線不同）
+- 必須明確指定每個 URI，不能使用通配符
 
 **常見錯誤**：
 - ❌ 添加了 `http://localhost` 但實際使用 `http://localhost:8080`
@@ -97,9 +104,9 @@ Google Cloud Console 的變更可能需要時間生效：
 
 ## 如果仍然失敗
 
-### 方法 1：添加所有可能的 URI
+### 方法 1：添加所有可能的 URI（根據官方規則）
 
-在 Google Cloud Console 中，添加以下所有 URI：
+根據 [Google 官方文件](https://developers.google.com/identity/protocols/oauth2/web-server?hl=zh-tw#authorization-errors-redirect-uri-mismatch)，由於 URI 必須完全匹配，建議在 Google Cloud Console 中添加以下所有 URI：
 
 ```
 http://localhost
@@ -119,6 +126,8 @@ http://127.0.0.1/
 http://127.0.0.1:8080
 http://127.0.0.1:8080/
 ```
+
+**注意**：根據官方規則，每個 URI 都必須完全匹配，包括結尾的斜線。因此需要同時添加有斜線和無斜線的版本。
 
 ### 方法 2：使用固定端口並確保可用
 
