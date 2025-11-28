@@ -63,6 +63,21 @@
                 <h1 class="card-title mb-4">獎勵發放系統</h1>
                 <p class="card-text text-muted mb-4">點擊下方按鈕開始同步 Google Sheets 資料到資料庫</p>
                 
+                <div id="apiStatus" class="alert alert-info mb-3" role="alert" style="display: none;">
+                    <small>
+                        <i class="bi bi-info-circle me-1"></i>
+                        <strong>後端連線：</strong><span id="apiUrl">檢查中...</span>
+                    </small>
+                    <div id="backendUrlInput" class="mt-2" style="display: none;">
+                        <label class="form-label"><small>後端 API 網址：</small></label>
+                        <div class="input-group input-group-sm">
+                            <input type="text" id="backendUrl" class="form-control" placeholder="http://151.242.53.189:2999" value="http://151.242.53.189:2999">
+                            <button class="btn btn-outline-secondary" type="button" onclick="setBackendUrl()">設定</button>
+                        </div>
+                        <small class="text-muted">預設後端：http://151.242.53.189:2999（可修改）</small>
+                    </div>
+                </div>
+                
                 <button id="syncBtn" class="btn btn-primary btn-lg">
                     <i class="bi bi-cloud-upload me-2"></i>
                     開始發放
@@ -108,7 +123,7 @@
         const resultMessage = document.getElementById('resultMessage');
 
         // 設定 API 基礎路徑
-        // 方案 1：如果後端在本地運行（開發環境），使用 http://localhost:5000
+        // 方案 1：如果後端在本地運行（開發環境），使用 http://localhost:2999
         // 方案 2：如果後端部署在遠端，使用後端的公開 URL
         // 方案 3：如果使用 Netlify 代理，使用相對路徑（空字串）
         
@@ -118,11 +133,61 @@
                        window.location.hostname === '';
         
         // 可以手動設定後端 URL（優先使用）
-        // 例如：const API_BASE = 'http://localhost:5000';
+        // 例如：const API_BASE = 'http://localhost:2999';
+        // 例如：const API_BASE = 'http://151.242.53.189:2999';
         // 例如：const API_BASE = 'https://your-backend.onrender.com';
         
-        const API_BASE = window.API_BASE_URL || 
-                        (isLocal ? 'http://localhost:5000' : '');
+        // 預設後端 URL（如果未設定）
+        const DEFAULT_BACKEND_URL = 'http://151.242.53.189:2999';
+        
+        // API_BASE 會在後面重新定義，這裡先保留變數聲明
+        let API_BASE = window.API_BASE_URL || 
+                        (isLocal ? 'http://localhost:2999' : DEFAULT_BACKEND_URL);
+
+        // 顯示 API 連線狀態
+        const apiStatus = document.getElementById('apiStatus');
+        const apiUrl = document.getElementById('apiUrl');
+        const backendUrlInput = document.getElementById('backendUrlInput');
+        
+        // 從 localStorage 讀取之前設定的後端 URL
+        let savedBackendUrl = localStorage.getItem('backend_api_url');
+        if (savedBackendUrl) {
+            window.API_BASE_URL = savedBackendUrl;
+        }
+        
+        // 重新計算 API_BASE（考慮 localStorage 的值）
+        const DEFAULT_BACKEND = 'http://151.242.53.189:2999';
+        const finalApiBase = window.API_BASE_URL || 
+                            (isLocal ? 'http://localhost:2999' : DEFAULT_BACKEND);
+        
+        if (finalApiBase) {
+            apiStatus.style.display = 'block';
+            apiStatus.className = 'alert alert-info';
+            apiUrl.textContent = finalApiBase;
+            apiUrl.className = 'text-primary';
+        } else {
+            apiStatus.style.display = 'block';
+            apiStatus.className = 'alert alert-warning';
+            apiUrl.textContent = '未設定';
+            apiUrl.className = 'text-warning';
+            backendUrlInput.style.display = 'block';
+        }
+        
+        // 更新 API_BASE 變數（使用 let 以便後續修改）
+        API_BASE = finalApiBase;
+        
+        // 設定後端 URL 的函數
+        window.setBackendUrl = function() {
+            const url = document.getElementById('backendUrl').value.trim();
+            if (url) {
+                // 移除尾部的斜線
+                const cleanUrl = url.replace(/\/$/, '');
+                localStorage.setItem('backend_api_url', cleanUrl);
+                window.location.reload();
+            } else {
+                alert('請輸入有效的後端 URL');
+            }
+        };
 
         syncBtn.addEventListener('click', async function() {
             // 禁用按鈕
@@ -135,6 +200,11 @@
             resultMessage.style.display = 'none';
             
             try {
+                // 檢查 API_BASE 是否設定
+                if (!API_BASE) {
+                    throw new Error('後端 API 網址未設定。請確認後端已啟動並設定正確的 API 網址。');
+                }
+                
                 const response = await fetch(`${API_BASE}/api/sync`, {
                     method: 'POST',
                     headers: {
@@ -142,7 +212,30 @@
                     }
                 });
                 
-                const data = await response.json();
+                // 檢查響應狀態
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(`伺服器錯誤 (${response.status}): ${text.substring(0, 200)}`);
+                }
+                
+                // 檢查內容類型
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    throw new Error(`伺服器返回非 JSON 格式: ${text.substring(0, 200)}`);
+                }
+                
+                // 解析 JSON
+                let data;
+                try {
+                    const text = await response.text();
+                    if (!text || text.trim() === '') {
+                        throw new Error('伺服器返回空響應');
+                    }
+                    data = JSON.parse(text);
+                } catch (parseError) {
+                    throw new Error(`無法解析伺服器響應: ${parseError.message}`);
+                }
                 
                 // 隱藏載入動畫
                 loadingSpinner.style.display = 'none';
@@ -175,12 +268,38 @@
                 loadingSpinner.style.display = 'none';
                 resultMessage.style.display = 'block';
                 resultMessage.className = 'alert alert-danger';
+                
+                let errorMessage = error.message;
+                let errorDetails = '';
+                
+                // 提供更詳細的錯誤資訊和建議
+                if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+                    errorDetails = `
+                        <p class="mt-2 mb-0"><small>
+                            <strong>可能的原因：</strong><br>
+                            1. 後端服務未啟動（請執行 start_backend.bat）<br>
+                            2. 後端 URL 設定錯誤（目前使用: ${API_BASE || '未設定'}）<br>
+                            3. 網路連線問題
+                        </small></p>
+                    `;
+                } else if (errorMessage.includes('後端 API 網址未設定')) {
+                    errorDetails = `
+                        <p class="mt-2 mb-0"><small>
+                            <strong>解決方法：</strong><br>
+                            1. 確認後端已啟動（執行 start_backend.bat）<br>
+                            2. 如果是本地環境，前端會自動使用 http://localhost:2999<br>
+                            3. 如果是 Netlify，請設定環境變數 API_BASE_URL
+                        </small></p>
+                    `;
+                }
+                
                 resultMessage.innerHTML = `
                     <h4 class="alert-heading">
                         <i class="bi bi-exclamation-triangle-fill me-2"></i>
                         連線錯誤
                     </h4>
-                    <p class="mb-0">無法連接到伺服器：${error.message}</p>
+                    <p class="mb-0"><strong>錯誤訊息：</strong>${errorMessage}</p>
+                    ${errorDetails}
                 `;
             } finally {
                 // 恢復按鈕

@@ -104,5 +104,5 @@ if __name__ == '__main__':
             app.config['DB_AVAILABLE'] = False
             logging.error(f"啟動時檢查資料庫發生未預期錯誤: {e}")
 
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=2999)
 

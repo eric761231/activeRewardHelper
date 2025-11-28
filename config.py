@@ -1,5 +1,6 @@
 import os
 import json
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -8,7 +9,16 @@ load_dotenv()
 class Config:
     def __init__(self):
         # 設定檔路徑
-        config_dir = Path(__file__).parent / 'config'
+        # 如果是 PyInstaller 打包的環境，使用 sys._MEIPASS
+        # 否則使用當前檔案所在目錄
+        if getattr(sys, 'frozen', False):
+            # PyInstaller 打包後的環境
+            base_path = Path(sys.executable).parent
+        else:
+            # 正常 Python 環境
+            base_path = Path(__file__).parent
+        
+        config_dir = base_path / 'config'
         mysql_config_path = config_dir / 'mysql_config.json'
         cloud_config_path = config_dir / 'cloud_csv_config.json'
         
@@ -55,7 +65,14 @@ class Config:
             try:
                 with open(config_path, 'r', encoding='utf-8') as f:
                     cloud_config = json.load(f)
-                    self.GOOGLE_SHEETS_CREDENTIALS_FILE = cloud_config.get('credentials_file', 'credentials.json')
+                    credentials_file = cloud_config.get('credentials_file', 'credentials.json')
+                    # 如果是相對路徑，轉換為絕對路徑（相對於 config 目錄）
+                    if not os.path.isabs(credentials_file):
+                        # 取得 config 目錄的路徑
+                        config_dir = config_path.parent
+                        self.GOOGLE_SHEETS_CREDENTIALS_FILE = str(config_dir / credentials_file)
+                    else:
+                        self.GOOGLE_SHEETS_CREDENTIALS_FILE = credentials_file
                     self.SPREADSHEET_ID = cloud_config.get('spreadsheet_id', '')
                     self.WORKSHEET_NAME = cloud_config.get('worksheet_name', '')
                     self.WORKSHEET_GID = cloud_config.get('worksheet_gid', '')
