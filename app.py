@@ -13,9 +13,11 @@ logging.basicConfig(
 
 app = Flask(__name__)
 app.config.from_object(Config())
-# 允許前端（例如 Live Server 在 http://127.0.0.1:5500）對 /api/* 進行跨域請求。
-# 開發環境可使用寬鬆設定，生產環境請限制為必要來源。
-CORS(app, resources={r"/api/*": {"origins": ["http://127.0.0.1:5500", "http://localhost:5500"]}})
+# CORS 設定：允許來自 Netlify 和其他前端的跨域請求
+# 在生產環境中，建議使用環境變數來限制允許的來源
+import os
+allowed_origins = os.getenv('ALLOWED_ORIGINS', '*').split(',')
+CORS(app, resources={r"/api/*": {"origins": allowed_origins}})
 db.init_app(app)
 
 @app.route('/')

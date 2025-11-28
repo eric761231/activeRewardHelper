@@ -1,8 +1,15 @@
 # Netlify redirects file
-# Replace the target URL below with your backend's public URL (ngrok, deployed API, etc.).
-# Example when using ngrok (after running `ngrok http 5000`):
-# /api/*  https://abcd1234.ngrok.io/:splat  200
-# Example when your API is deployed at https://api.example.com:
-# /api/*  https://api.example.com/:splat  200
+# 將 API 請求代理到後端伺服器
+# 請將下面的 URL 替換為您的後端 API 網址（例如：Render、Railway、Heroku 等）
 
-/api/*  https://REPLACE_WITH_YOUR_BACKEND_URL/:splat  200
+# 範例：如果後端部署在 Render
+# /api/*  https://your-app.onrender.com/api/:splat  200
+
+# 範例：如果後端部署在 Railway
+# /api/*  https://your-app.railway.app/api/:splat  200
+
+# 請替換下面的 URL 為您的實際後端網址
+/api/*  https://REPLACE_WITH_YOUR_BACKEND_URL/api/:splat  200
+
+# 靜態資源
+/favicon.svg  /netlify/favicon.svg  200

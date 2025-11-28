@@ -13,8 +13,8 @@ credentials.json
 *.sqlite
 .DS_Store
 *.log
-# Ignore service account keys and DB config
-config/keys/*.json
+
+# 設定檔（保留範例檔案）
 config/mysql_config.json
 config/cloud_csv_config.json
-
+config/keys/
