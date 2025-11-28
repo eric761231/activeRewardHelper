@@ -70,6 +70,11 @@ class Config:
                     if not os.path.isabs(credentials_file):
                         # 取得 config 目錄的路徑
                         config_dir = config_path.parent
+                        # 移除路徑中可能包含的 'config/' 前綴，避免重複
+                        if credentials_file.startswith('config/'):
+                            credentials_file = credentials_file[7:]  # 移除 'config/' (7 個字元)
+                        elif credentials_file.startswith('config\\'):
+                            credentials_file = credentials_file[7:]  # 移除 'config\' (7 個字元)
                         self.GOOGLE_SHEETS_CREDENTIALS_FILE = str(config_dir / credentials_file)
                     else:
                         self.GOOGLE_SHEETS_CREDENTIALS_FILE = credentials_file
