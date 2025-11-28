@@ -75,8 +75,8 @@
                             <button class="btn btn-outline-secondary" type="button" onclick="setBackendUrl()">設定</button>
                         </div>
                         <small class="text-muted">
-                            後端位置：localhost（端口：2998）<br>
-                            或手動指定單一後端 URL（格式：http://IP:2998）<br>
+                            後端位置：localhost（端口：8080）<br>
+                            或手動指定單一後端 URL（格式：http://IP:8080）<br>
                             <button class="btn btn-sm btn-outline-secondary mt-1" type="button" onclick="clearBackendUrl()">清除已保存的設定</button>
                         </small>
                     </div>
@@ -127,7 +127,7 @@
         const resultMessage = document.getElementById('resultMessage');
 
         // 設定 API 基礎路徑
-        // 方案 1：如果後端在本地運行（開發環境），使用 http://localhost:2998
+        // 方案 1：如果後端在本地運行（開發環境），使用 http://localhost:8080
         // 方案 2：如果後端部署在遠端，使用後端的公開 URL
         // 方案 3：如果使用 Netlify 代理，使用相對路徑（空字串）
         
@@ -137,8 +137,8 @@
                        window.location.hostname === '';
         
         // 可以手動設定後端 URL（優先使用）
-        // 例如：const API_BASE = 'http://localhost:2998';
-        // 例如：const API_BASE = 'http://localhost:2998';
+        // 例如：const API_BASE = 'http://localhost:8080';
+        // 例如：const API_BASE = 'http://localhost:8080';
         // 例如：const API_BASE = 'https://your-backend.onrender.com';
         
         // 多個後端 IP 列表（故障轉移）- 改為 localhost
@@ -146,12 +146,12 @@
             'localhost',
             '127.0.0.1'
         ];
-        const BACKEND_PORT = 2998;
+        const BACKEND_PORT = 8080;
         
         // 預設後端 URL（如果未設定）
         // 在 Netlify 上使用相對路徑（空字串），讓 _redirects 代理處理
         // 本地環境使用 localhost
-        const DEFAULT_BACKEND_URL = isLocal ? 'http://localhost:2998' : '';
+        const DEFAULT_BACKEND_URL = isLocal ? 'http://localhost:8080' : '';
         
         // API_BASE 會在後面重新定義，這裡先保留變數聲明
         let API_BASE = window.API_BASE_URL || DEFAULT_BACKEND_URL;
@@ -176,7 +176,7 @@
         
         // 重新計算 API_BASE（考慮 localStorage 的值）
         // 在 Netlify 上，使用相對路徑讓 _redirects 代理處理（避免混合內容問題）
-        const DEFAULT_BACKEND = isLocal ? 'http://localhost:2998' : '';
+        const DEFAULT_BACKEND = isLocal ? 'http://localhost:8080' : '';
         const finalApiBase = window.API_BASE_URL || DEFAULT_BACKEND;
         
         if (finalApiBase) {
@@ -215,7 +215,7 @@
             if (url) {
                 // 檢查端口是否正確
                 if (url.includes(':2999')) {
-                    alert('警告：檢測到舊端口 2999，請使用端口 2998。\n例如：http://localhost:2998');
+                    alert('警告：檢測到舊端口 2999，請使用端口 8080。\n例如：http://localhost:8080');
                     return;
                 }
                 // 移除尾部的斜線
@@ -253,7 +253,7 @@
             // 避免混合內容問題，並支援多後端故障轉移
             if (!isLocalEnv) {
                 // 嘗試多個後端路徑（故障轉移）
-                const apiPaths = ['/api1', '/api2', '/api3', '/api4', '/api'];
+                const apiPaths = ['/api1', '/api2', '/api3', '/api4', '/api5'];
                 const errors = [];
                 
                 for (let i = 0; i < apiPaths.length; i++) {
@@ -424,7 +424,7 @@
                         <p class="mt-2 mb-0"><small>
                             <strong>解決方法：</strong><br>
                             1. 確認後端已啟動（執行 start_backend.bat）<br>
-                            2. 如果是本地環境，前端會自動使用 http://localhost:2998<br>
+                            2. 如果是本地環境，前端會自動使用 http://localhost:8080<br>
                             3. 如果是 Netlify，請設定環境變數 API_BASE_URL
                         </small></p>
                     `;

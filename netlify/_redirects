@@ -6,11 +6,14 @@
 # 將 API 請求代理到本地後端伺服器
 
 # 主要後端：localhost
-/api/*  http://localhost:2998/api/:splat  200
+/api/*  http://localhost:8080/api/:splat  200
 
 # 備用後端（故障轉移）
-/api1/*  http://localhost:2998/api/:splat  200
-/api2/*  http://127.0.0.1:2998/api/:splat  200
+/api1/*  http://localhost:8080/api/:splat  200
+/api2/*  http://127.0.0.1:8080/api/:splat  200
+/api3/*  http://localhost:8080/api/:splat  200
+/api4/*  http://127.0.0.1:8080/api/:splat  200
+/api5/*  http://localhost:8080/api/:splat  200
 
 # 靜態資源
 /favicon.svg  /favicon.svg  200
