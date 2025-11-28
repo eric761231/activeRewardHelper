@@ -114,11 +114,25 @@ class GoogleSheetsService:
         logger.info("瀏覽器將自動打開，請登入您的 Google 帳號並授權")
         
         # 在本地伺服器上運行授權流程
-        try:
-            creds = flow.run_local_server(port=8080)
-        except OSError:
-            # 如果 8080 端口被占用，使用自動選擇端口
-            logger.warning("端口 8080 被占用，使用自動選擇端口")
+        # 嘗試多個固定端口，避免使用隨機端口（導致 redirect_uri_mismatch）
+        fixed_ports = [8080, 8081, 8082, 8083, 8084]
+        creds = None
+        
+        for port in fixed_ports:
+            try:
+                logger.info(f"嘗試使用端口 {port}...")
+                creds = flow.run_local_server(port=port)
+                logger.info(f"成功使用端口 {port}")
+                break
+            except OSError as e:
+                logger.debug(f"端口 {port} 被占用: {e}")
+                continue
+        
+        if not creds:
+            # 如果所有固定端口都被占用，使用自動選擇端口
+            logger.warning("所有固定端口都被占用，使用自動選擇端口（可能導致 redirect_uri_mismatch）")
+            logger.warning("建議：1) 關閉占用端口的程式 2) 或在 Google Cloud Console 中添加實際使用的 URI")
+            logger.warning("如果出現 redirect_uri_mismatch 錯誤，請查看授權 URL 中的端口號，並添加到 Google Cloud Console")
             creds = flow.run_local_server(port=0)
         
         logger.info("授權成功！")

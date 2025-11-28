@@ -12,7 +12,37 @@ redirect_uri=http://localhost:62619/
 
 ## 快速解決方法
 
-### 方法 1：在 Google Cloud Console 中添加 localhost URI（推薦）
+### 方法 1：添加多個固定端口（推薦，已更新代碼）
+
+代碼已更新為嘗試多個固定端口（8080-8084），您只需要在 Google Cloud Console 中添加這些端口：
+
+1. **前往 Google Cloud Console**：
+   - https://console.cloud.google.com/apis/credentials
+
+2. **找到您的 OAuth 2.0 客戶端 ID**：
+   - 左側選單 → 「API 和服務」→ 「憑證」
+   - 找到「桌面應用程式」類型的客戶端 ID
+   - 點擊客戶端名稱或編輯圖示
+
+3. **添加授權的重定向 URI**：
+   - 在「授權的重定向 URI」區段，點擊「新增 URI」
+   - 添加以下 URI：
+     ```
+     http://localhost
+     http://localhost:8080
+     http://localhost:8081
+     http://localhost:8082
+     http://localhost:8083
+     http://localhost:8084
+     http://127.0.0.1
+     http://127.0.0.1:8080
+     ```
+
+4. **儲存變更**：
+   - 點擊「儲存」
+   - 等待 1-2 分鐘讓變更生效
+
+### 方法 2：在 Google Cloud Console 中添加 localhost URI（舊方法）
 
 1. **前往 Google Cloud Console**：
    - https://console.cloud.google.com/apis/credentials
