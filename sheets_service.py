@@ -1,12 +1,23 @@
 import gspread
-from google.oauth2.service_account import Credentials
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
 from config import Config
 import logging
+import os
+import json
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# OAuth 2.0 所需的權限範圍
+SCOPES = [
+    'https://spreadsheets.google.com/feeds',
+    'https://www.googleapis.com/auth/drive'
+]
+
 class GoogleSheetsService:
-    """Google Sheets 服務類別"""
+    """Google Sheets 服務類別（使用個人 Google 帳號 OAuth 2.0）"""
     
     def __init__(self):
         self.config = Config()
@@ -15,18 +26,84 @@ class GoogleSheetsService:
         self.worksheet = None
         self._connect()
     
+    def _get_credentials(self):
+        """
+        取得 OAuth 2.0 憑證
+        如果已有儲存的令牌，使用它；否則進行授權流程
+        """
+        creds = None
+        token_file = Path(self.config.GOOGLE_SHEETS_TOKEN_FILE)
+        
+        # 檢查是否已有儲存的令牌
+        if token_file.exists():
+            try:
+                creds = Credentials.from_authorized_user_file(str(token_file), SCOPES)
+                logger.info("從檔案載入已儲存的憑證")
+            except Exception as e:
+                logger.warning(f"載入已儲存的憑證失敗: {e}")
+                creds = None
+        
+        # 如果沒有憑證或憑證已過期
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                # 嘗試刷新令牌
+                try:
+                    logger.info("令牌已過期，正在刷新...")
+                    creds.refresh(Request())
+                    logger.info("令牌刷新成功")
+                except Exception as e:
+                    logger.warning(f"刷新令牌失敗: {e}，需要重新授權")
+                    creds = None
+            
+            # 如果仍然沒有有效的憑證，進行授權流程
+            if not creds or not creds.valid:
+                logger.info("需要進行 OAuth 2.0 授權流程")
+                creds = self._authorize()
+        
+        # 儲存憑證供下次使用
+        if creds and creds.valid:
+            try:
+                with open(token_file, 'w', encoding='utf-8') as token:
+                    token.write(creds.to_json())
+                logger.info(f"憑證已儲存到: {token_file}")
+            except Exception as e:
+                logger.warning(f"儲存憑證失敗: {e}")
+        
+        return creds
+    
+    def _authorize(self):
+        """
+        執行 OAuth 2.0 授權流程
+        第一次使用時，會在瀏覽器中打開授權頁面
+        """
+        client_secrets_file = Path(self.config.GOOGLE_SHEETS_CREDENTIALS_FILE)
+        
+        if not client_secrets_file.exists():
+            raise FileNotFoundError(
+                f"找不到 OAuth 2.0 客戶端憑證檔案: {client_secrets_file}\n"
+                "請前往 Google Cloud Console 建立 OAuth 2.0 客戶端 ID 並下載憑證檔案。\n"
+                "詳細說明請參考：OAUTH_SETUP.md"
+            )
+        
+        flow = InstalledAppFlow.from_client_secrets_file(
+            str(client_secrets_file),
+            SCOPES
+        )
+        
+        logger.info("正在啟動 OAuth 2.0 授權流程...")
+        logger.info("瀏覽器將自動打開，請登入您的 Google 帳號並授權")
+        
+        # 在本地伺服器上運行授權流程
+        creds = flow.run_local_server(port=0)
+        
+        logger.info("授權成功！")
+        return creds
+    
     def _connect(self):
         """連接到 Google Sheets"""
         try:
-            # 使用服務帳號憑證
-            scope = [
-                'https://spreadsheets.google.com/feeds',
-                'https://www.googleapis.com/auth/drive'
-            ]
-            creds = Credentials.from_service_account_file(
-                self.config.GOOGLE_SHEETS_CREDENTIALS_FILE,
-                scopes=scope
-            )
+            # 使用 OAuth 2.0 憑證
+            creds = self._get_credentials()
             self.client = gspread.authorize(creds)
             self.spreadsheet = self.client.open_by_key(self.config.SPREADSHEET_ID)
             

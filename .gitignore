@@ -23,3 +23,6 @@ dist/
 config/mysql_config.json
 config/cloud_csv_config.json
 config/keys/
+# OAuth 2.0 令牌檔案
+config/keys/token.json
+*.token.json
