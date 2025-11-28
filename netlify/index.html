@@ -75,7 +75,7 @@
                             <button class="btn btn-outline-secondary" type="button" onclick="setBackendUrl()">設定</button>
                         </div>
                         <small class="text-muted">
-                            可用後端 IP：151.242.53.185-189（端口：2998，自動故障轉移）<br>
+                            後端位置：localhost（端口：2998）<br>
                             或手動指定單一後端 URL（格式：http://IP:2998）<br>
                             <button class="btn btn-sm btn-outline-secondary mt-1" type="button" onclick="clearBackendUrl()">清除已保存的設定</button>
                         </small>
@@ -138,16 +138,13 @@
         
         // 可以手動設定後端 URL（優先使用）
         // 例如：const API_BASE = 'http://localhost:2998';
-        // 例如：const API_BASE = 'http://151.242.53.189:2998';
+        // 例如：const API_BASE = 'http://localhost:2998';
         // 例如：const API_BASE = 'https://your-backend.onrender.com';
         
-        // 多個後端 IP 列表（故障轉移）
+        // 多個後端 IP 列表（故障轉移）- 改為 localhost
         const BACKEND_IPS = [
-            '151.242.53.185',
-            '151.242.53.186',
-            '151.242.53.187',
-            '151.242.53.188',
-            '151.242.53.189'
+            'localhost',
+            '127.0.0.1'
         ];
         const BACKEND_PORT = 2998;
         
@@ -218,7 +215,7 @@
             if (url) {
                 // 檢查端口是否正確
                 if (url.includes(':2999')) {
-                    alert('警告：檢測到舊端口 2999，請使用端口 2998。\n例如：http://151.242.53.188:2998');
+                    alert('警告：檢測到舊端口 2999，請使用端口 2998。\n例如：http://localhost:2998');
                     return;
                 }
                 // 移除尾部的斜線
@@ -262,9 +259,9 @@
                 for (let i = 0; i < apiPaths.length; i++) {
                     const apiPath = apiPaths[i];
                     try {
-                        // 建立 AbortController 來實現超時（增加到 15 秒）
+                        // 建立 AbortController 來實現超時
                         const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 15000);
+                        const timeoutId = setTimeout(() => controller.abort(), 5000);
                         
                         const response = await fetch(`${apiPath}/sync`, {
                             method: 'POST',
@@ -284,14 +281,9 @@
                         if (response.status >= 400 && response.status < 500) {
                             return response;
                         }
-                        errors.push(`${apiPath}: HTTP ${response.status}`);
+                        errors.push(`${apiPath}: ${response.status}`);
                     } catch (error) {
-                        // 區分超時錯誤和其他錯誤
-                        let errorMsg = error.message;
-                        if (error.name === 'AbortError' || error.message.includes('aborted')) {
-                            errorMsg = `請求超時（15秒）`;
-                        }
-                        errors.push(`${apiPath}: ${errorMsg}`);
+                        errors.push(`${apiPath}: ${error.message}`);
                         // 繼續嘗試下一個路徑
                         continue;
                     }
@@ -307,9 +299,9 @@
                     const ip = backendIPs[i];
                     const url = `http://${ip}:${BACKEND_PORT}/api/sync`;
                     try {
-                        // 建立 AbortController 來實現超時（增加到 15 秒）
+                        // 建立 AbortController 來實現超時
                         const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 15000);
+                        const timeoutId = setTimeout(() => controller.abort(), 5000);
                         
                         const response = await fetch(url, {
                             method: 'POST',
@@ -329,14 +321,9 @@
                         if (response.status >= 400 && response.status < 500) {
                             return response;
                         }
-                        errors.push(`${ip}: HTTP ${response.status}`);
+                        errors.push(`${ip}: ${response.status}`);
                     } catch (error) {
-                        // 區分超時錯誤和其他錯誤
-                        let errorMsg = error.message;
-                        if (error.name === 'AbortError' || error.message.includes('aborted')) {
-                            errorMsg = `請求超時（15秒）`;
-                        }
-                        errors.push(`${ip}: ${errorMsg}`);
+                        errors.push(`${ip}: ${error.message}`);
                         // 繼續嘗試下一個 IP
                         continue;
                     }
@@ -430,37 +417,6 @@
                             1. 後端服務未啟動（請執行 start_backend.bat）<br>
                             2. 後端 URL 設定錯誤（目前使用: ${API_BASE || '未設定'}）<br>
                             3. 網路連線問題
-                        </small></p>
-                    `;
-                } else if (errorMessage.includes('請求超時') || errorMessage.includes('aborted')) {
-                    errorDetails = `
-                        <p class="mt-2 mb-0"><small>
-                            <strong>請求超時的可能原因：</strong><br>
-                            1. 後端服務未啟動或無法訪問<br>
-                            2. 後端服務響應時間過長（超過 15 秒）<br>
-                            3. Netlify 代理規則未正確設定<br>
-                            4. 後端 IP 地址無法從 Netlify 訪問<br>
-                            <br>
-                            <strong>解決方法：</strong><br>
-                            1. 確認後端服務正在運行（檢查後端日誌）<br>
-                            2. 檢查 Netlify _redirects 檔案是否正確部署<br>
-                            3. 確認後端 IP 地址是否可從外部訪問<br>
-                            4. 嘗試直接訪問後端 URL 測試連線
-                        </small></p>
-                    `;
-                } else if (errorMessage.includes('所有後端都無法連接')) {
-                    errorDetails = `
-                        <p class="mt-2 mb-0"><small>
-                            <strong>所有後端都無法連接：</strong><br>
-                            1. 確認至少一個後端服務正在運行<br>
-                            2. 檢查後端 IP 地址是否正確<br>
-                            3. 確認後端防火牆允許來自 Netlify 的請求<br>
-                            4. 如果是 Netlify 環境，檢查 _redirects 檔案<br>
-                            <br>
-                            <strong>測試方法：</strong><br>
-                            在瀏覽器中直接訪問：<br>
-                            https://activerewardhelper.netlify.app/api/status<br>
-                            應該會顯示後端狀態（如果代理正常）
                         </small></p>
                     `;
                 } else if (errorMessage.includes('後端 API 網址未設定')) {
