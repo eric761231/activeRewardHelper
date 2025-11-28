@@ -2,6 +2,7 @@
   publish = "netlify"
   command = "echo 'Static site - no build needed'"
 
-# 注意：API 重定向規則在 _redirects 檔案中設定
+# 注意：API 重定向規則在 netlify/_redirects 檔案中設定
 # 這樣可以將 /api/* 請求代理到後端伺服器
+# _redirects 檔案必須在發布目錄（netlify/）中才能生效
 
