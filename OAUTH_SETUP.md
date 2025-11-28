@@ -34,6 +34,13 @@
 5. **建立 OAuth 客戶端 ID**：
    - 應用程式類型：選擇「桌面應用程式」
    - 名稱：輸入名稱（例如：「獎勵發放系統桌面版」）
+   - **重要**：在「授權的重定向 URI」中，添加以下 URI：
+     ```
+     http://localhost
+     http://localhost:8080
+     http://127.0.0.1
+     http://127.0.0.1:8080
+     ```
    - 點擊「建立」
 
 6. **下載憑證檔案**：
@@ -134,7 +141,7 @@ config/
 
 ### 問題：redirect_uri_mismatch 錯誤
 
-**錯誤訊息**：`發生錯誤 400： redirect_uri_mismatch`
+**錯誤訊息**：`錯誤 400：redirect_uri_mismatch`
 
 **原因**：Google Cloud Console 中設定的重定向 URI 與應用程式實際使用的 URI 不匹配。
 
@@ -143,13 +150,16 @@ config/
 2. 找到您的 OAuth 2.0 客戶端 ID（桌面應用程式）
 3. 點擊編輯，在「授權的重定向 URI」中添加：
    ```
-   http://localhost:8080
    http://localhost
-   http://127.0.0.1:8080
+   http://localhost:8080
+   http://localhost:8081
+   http://localhost:8082
    http://127.0.0.1
+   http://127.0.0.1:8080
    ```
-4. 點擊「儲存」，等待幾分鐘讓變更生效
-5. 重新運行應用程式
+4. 點擊「儲存」，等待 1-2 分鐘讓變更生效
+5. 刪除 `config/keys/token.json`（如果存在）
+6. 重新運行應用程式
 
 **詳細說明**：請參考 `OAUTH_REDIRECT_URI_FIX.md`
 
