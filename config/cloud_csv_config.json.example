@@ -1,8 +1,0 @@
-{
-    "credentials_file": "keys/client_secrets.json",
-    "token_file": "keys/token.json",
-    "spreadsheet_id": "1T70siVXhG8VcERTGtVKiSdWPfc6eHc4dt-SGOt9ppE4",
-    "worksheet_name": "神說外交官",
-    "worksheet_gid": "1753592588"
-}
-
