@@ -1,9 +1,12 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, redirect, session, url_for
 from config import Config
 from models import db, ActiveReward
 from sync_service import SyncService
+from sheets_service import GoogleSheetsService, SCOPES
 import logging
 from flask_cors import CORS
+import os
+from pathlib import Path
 
 # 設定日誌
 logging.basicConfig(
@@ -13,9 +16,11 @@ logging.basicConfig(
 
 app = Flask(__name__)
 app.config.from_object(Config())
+# 設定 secret_key 用於 session（OAuth 流程需要）
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+
 # CORS 設定：允許來自 Netlify 和其他前端的跨域請求
 # 在生產環境中，建議使用環境變數來限制允許的來源
-import os
 allowed_origins = os.getenv('ALLOWED_ORIGINS', '*').split(',')
 CORS(app, resources={r"/api/*": {"origins": allowed_origins}})
 db.init_app(app)
@@ -61,6 +66,108 @@ def status():
             'success': False,
             'database_connected': False,
             'error': str(e)
+        }), 500
+
+@app.route('/api/oauth/authorize', methods=['GET'])
+def oauth_authorize():
+    """
+    啟動 OAuth 2.0 授權流程（Web 應用程式）
+    用於 Render 等 Web 環境
+    """
+    try:
+        config = Config()
+        client_secrets_file = Path(config.GOOGLE_SHEETS_CREDENTIALS_FILE)
+        
+        if not client_secrets_file.exists():
+            return jsonify({
+                'success': False,
+                'error': f'找不到 OAuth 2.0 客戶端憑證檔案: {client_secrets_file}'
+            }), 500
+        
+        # 取得 Render URL 或使用請求的 host
+        render_url = os.getenv('RENDER_EXTERNAL_URL', '')
+        if not render_url:
+            # 從請求中取得 base URL
+            render_url = f"{request.scheme}://{request.host}"
+        
+        redirect_uri = f"{render_url}/oauth2callback"
+        
+        # 建立 OAuth 流程
+        flow, authorization_url, state = GoogleSheetsService.create_web_flow(
+            client_secrets_file,
+            redirect_uri
+        )
+        
+        # 儲存 state 到 session（用於回調驗證）
+        session['oauth_state'] = state
+        session['oauth_redirect_uri'] = redirect_uri  # 儲存 redirect_uri 以便回調時使用
+        
+        logging.info(f"OAuth 授權 URL: {authorization_url}")
+        return redirect(authorization_url)
+        
+    except Exception as e:
+        logging.exception("OAuth 授權失敗")
+        return jsonify({
+            'success': False,
+            'error': f'OAuth 授權失敗: {str(e)}'
+        }), 500
+
+@app.route('/oauth2callback', methods=['GET'])
+def oauth2callback():
+    """
+    OAuth 2.0 回調處理
+    處理 Google 重定向回來的授權結果
+    """
+    try:
+        config = Config()
+        client_secrets_file = Path(config.GOOGLE_SHEETS_CREDENTIALS_FILE)
+        token_file = Path(config.GOOGLE_SHEETS_TOKEN_FILE)
+        
+        # 取得 Render URL
+        render_url = os.getenv('RENDER_EXTERNAL_URL', '')
+        if not render_url:
+            render_url = f"{request.scheme}://{request.host}"
+        
+        redirect_uri = f"{render_url}/oauth2callback"
+        
+        # 從 session 取得 state（用於驗證）
+        saved_state = session.get('oauth_state')
+        saved_redirect_uri = session.get('oauth_redirect_uri', redirect_uri)
+        
+        if not saved_state:
+            return jsonify({
+                'success': False,
+                'error': 'OAuth state 遺失，請重新授權'
+            }), 400
+        
+        # 完成 OAuth 流程（使用 session 中儲存的 redirect_uri 和 state）
+        authorization_response = request.url
+        creds = GoogleSheetsService.complete_web_flow(
+            client_secrets_file,
+            saved_redirect_uri,
+            authorization_response,
+            state=saved_state
+        )
+        
+        # 儲存憑證
+        token_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(token_file, 'w', encoding='utf-8') as token:
+            token.write(creds.to_json())
+        
+        logging.info(f"OAuth 授權成功，憑證已儲存到: {token_file}")
+        
+        # 清除 session
+        session.pop('oauth_state', None)
+        session.pop('oauth_redirect_uri', None)
+        
+        # 重定向到首頁，顯示成功訊息
+        return redirect(f'/?authorized=success')
+        
+    except Exception as e:
+        logging.exception("OAuth 回調失敗")
+        return jsonify({
+            'success': False,
+            'error': f'OAuth 回調失敗: {str(e)}'
         }), 500
 
 if __name__ == '__main__':

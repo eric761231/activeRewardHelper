@@ -1,6 +1,6 @@
 import gspread
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google_auth_oauthlib.flow import InstalledAppFlow, Flow
 from google.auth.transport.requests import Request
 from config import Config
 import logging
@@ -15,6 +15,9 @@ SCOPES = [
     'https://spreadsheets.google.com/feeds',
     'https://www.googleapis.com/auth/drive'
 ]
+
+# 全域變數：用於儲存 Web OAuth 流程的 state（用於回調驗證）
+_oauth_flow_state = None
 
 class GoogleSheetsService:
     """Google Sheets 服務類別（使用個人 Google 帳號 OAuth 2.0）"""
@@ -74,7 +77,7 @@ class GoogleSheetsService:
     def _authorize(self):
         """
         執行 OAuth 2.0 授權流程
-        第一次使用時，會在瀏覽器中打開授權頁面
+        根據環境自動選擇桌面應用程式或 Web 應用程式流程
         """
         client_secrets_file = Path(self.config.GOOGLE_SHEETS_CREDENTIALS_FILE)
         
@@ -85,17 +88,32 @@ class GoogleSheetsService:
                 "詳細說明請參考：OAUTH_SETUP.md"
             )
         
+        # 檢查是否在 Render 或其他 Web 環境
+        is_web_env = os.getenv('RENDER') is not None or os.getenv('WEB_OAUTH') == 'true'
+        render_url = os.getenv('RENDER_EXTERNAL_URL', '')
+        
+        if is_web_env and render_url:
+            # Web 應用程式流程（Render）
+            logger.info("偵測到 Web 環境，使用 Web 應用程式 OAuth 流程")
+            raise RuntimeError(
+                "在 Web 環境中，請先訪問 /api/oauth/authorize 進行授權。\n"
+                f"授權 URL: {render_url}/api/oauth/authorize"
+            )
+        else:
+            # 桌面應用程式流程（本地開發）
+            return self._authorize_desktop(client_secrets_file)
+    
+    def _authorize_desktop(self, client_secrets_file):
+        """桌面應用程式 OAuth 流程（本地開發）"""
         flow = InstalledAppFlow.from_client_secrets_file(
             str(client_secrets_file),
             SCOPES
         )
         
-        logger.info("正在啟動 OAuth 2.0 授權流程...")
+        logger.info("正在啟動 OAuth 2.0 授權流程（桌面應用程式）...")
         logger.info("瀏覽器將自動打開，請登入您的 Google 帳號並授權")
         
         # 在本地伺服器上運行授權流程
-        # 使用固定端口 8080，避免 redirect_uri_mismatch 錯誤
-        # 如果端口被占用，會自動嘗試其他端口
         try:
             creds = flow.run_local_server(port=8080)
         except OSError:
@@ -105,6 +123,51 @@ class GoogleSheetsService:
         
         logger.info("授權成功！")
         return creds
+    
+    @staticmethod
+    def create_web_flow(client_secrets_file, redirect_uri):
+        """
+        建立 Web 應用程式 OAuth 流程
+        用於 Flask 路由中
+        
+        Returns:
+            tuple: (flow, authorization_url, state)
+        """
+        flow = Flow.from_client_secrets_file(
+            str(client_secrets_file),
+            SCOPES,
+            redirect_uri=redirect_uri
+        )
+        
+        authorization_url, state = flow.authorization_url(
+            access_type='offline',
+            include_granted_scopes='true',
+            prompt='consent'  # 強制顯示同意畫面，確保獲得 refresh_token
+        )
+        
+        return flow, authorization_url, state
+    
+    @staticmethod
+    def complete_web_flow(client_secrets_file, redirect_uri, authorization_response, state=None):
+        """
+        完成 Web 應用程式 OAuth 流程
+        用於 Flask 回調路由中
+        
+        Args:
+            client_secrets_file: OAuth 客戶端憑證檔案路徑
+            redirect_uri: 重定向 URI（必須與建立流程時一致）
+            authorization_response: 授權回應 URL（從 request.url 取得）
+            state: OAuth state（從 session 取得，用於驗證）
+        """
+        flow = Flow.from_client_secrets_file(
+            str(client_secrets_file),
+            SCOPES,
+            redirect_uri=redirect_uri,
+            state=state
+        )
+        
+        flow.fetch_token(authorization_response=authorization_response)
+        return flow.credentials
     
     def _connect(self):
         """連接到 Google Sheets"""
