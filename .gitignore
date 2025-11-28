@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+*.env
+credentials.json
+*.db
+*.sqlite
+.DS_Store
+*.log
+# Ignore service account keys and DB config
+config/keys/*.json
+config/mysql_config.json
+config/cloud_csv_config.json
+

@@ -1,0 +1,8 @@
+# Netlify redirects file
+# Replace the target URL below with your backend's public URL (ngrok, deployed API, etc.).
+# Example when using ngrok (after running `ngrok http 5000`):
+# /api/*  https://abcd1234.ngrok.io/:splat  200
+# Example when your API is deployed at https://api.example.com:
+# /api/*  https://api.example.com/:splat  200
+
+/api/*  https://REPLACE_WITH_YOUR_BACKEND_URL/:splat  200
