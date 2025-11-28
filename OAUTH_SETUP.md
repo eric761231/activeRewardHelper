@@ -132,6 +132,27 @@ config/
 
 ## 疑難排解
 
+### 問題：redirect_uri_mismatch 錯誤
+
+**錯誤訊息**：`發生錯誤 400： redirect_uri_mismatch`
+
+**原因**：Google Cloud Console 中設定的重定向 URI 與應用程式實際使用的 URI 不匹配。
+
+**解決方法**：
+1. 前往 Google Cloud Console → 「API 和服務」→ 「憑證」
+2. 找到您的 OAuth 2.0 客戶端 ID（桌面應用程式）
+3. 點擊編輯，在「授權的重定向 URI」中添加：
+   ```
+   http://localhost:8080
+   http://localhost
+   http://127.0.0.1:8080
+   http://127.0.0.1
+   ```
+4. 點擊「儲存」，等待幾分鐘讓變更生效
+5. 重新運行應用程式
+
+**詳細說明**：請參考 `OAUTH_REDIRECT_URI_FIX.md`
+
 ### 問題：找不到 client_secrets.json
 
 **解決方法**：
