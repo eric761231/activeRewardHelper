@@ -33,7 +33,7 @@ if errorlevel 1 (
 echo.
 
 echo [3/3] 啟動 Flask 後端服務...
-echo 後端將運行在: http://localhost:2999
+echo 後端將運行在: http://localhost:2998
 echo.
 echo 請保持此視窗開啟，不要關閉！
 echo.

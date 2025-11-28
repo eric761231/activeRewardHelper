@@ -69,12 +69,15 @@
                         <strong>後端連線：</strong><span id="apiUrl">檢查中...</span>
                     </small>
                     <div id="backendUrlInput" class="mt-2" style="display: none;">
-                        <label class="form-label"><small>後端 API 網址：</small></label>
+                        <label class="form-label"><small>後端 API 網址（可選，留空則自動嘗試所有 IP）：</small></label>
                         <div class="input-group input-group-sm">
-                            <input type="text" id="backendUrl" class="form-control" placeholder="http://151.242.53.189:2999" value="http://151.242.53.189:2999">
+                            <input type="text" id="backendUrl" class="form-control" placeholder="留空則使用故障轉移模式" value="">
                             <button class="btn btn-outline-secondary" type="button" onclick="setBackendUrl()">設定</button>
                         </div>
-                        <small class="text-muted">預設後端：http://151.242.53.189:2999（可修改）</small>
+                        <small class="text-muted">
+                            可用後端 IP：151.242.53.185-189（自動故障轉移）<br>
+                            或手動指定單一後端 URL
+                        </small>
                     </div>
                 </div>
                 
@@ -123,7 +126,7 @@
         const resultMessage = document.getElementById('resultMessage');
 
         // 設定 API 基礎路徑
-        // 方案 1：如果後端在本地運行（開發環境），使用 http://localhost:2999
+        // 方案 1：如果後端在本地運行（開發環境），使用 http://localhost:2998
         // 方案 2：如果後端部署在遠端，使用後端的公開 URL
         // 方案 3：如果使用 Netlify 代理，使用相對路徑（空字串）
         
@@ -133,14 +136,24 @@
                        window.location.hostname === '';
         
         // 可以手動設定後端 URL（優先使用）
-        // 例如：const API_BASE = 'http://localhost:2999';
-        // 例如：const API_BASE = 'http://151.242.53.189:2999';
+        // 例如：const API_BASE = 'http://localhost:2998';
+        // 例如：const API_BASE = 'http://151.242.53.189:2998';
         // 例如：const API_BASE = 'https://your-backend.onrender.com';
+        
+        // 多個後端 IP 列表（故障轉移）
+        const BACKEND_IPS = [
+            '151.242.53.185',
+            '151.242.53.186',
+            '151.242.53.187',
+            '151.242.53.188',
+            '151.242.53.189'
+        ];
+        const BACKEND_PORT = 2998;
         
         // 預設後端 URL（如果未設定）
         // 在 Netlify 上使用相對路徑（空字串），讓 _redirects 代理處理
         // 本地環境使用 localhost
-        const DEFAULT_BACKEND_URL = isLocal ? 'http://localhost:2999' : '';
+        const DEFAULT_BACKEND_URL = isLocal ? 'http://localhost:2998' : '';
         
         // API_BASE 會在後面重新定義，這裡先保留變數聲明
         let API_BASE = window.API_BASE_URL || DEFAULT_BACKEND_URL;
@@ -158,13 +171,19 @@
         
         // 重新計算 API_BASE（考慮 localStorage 的值）
         // 在 Netlify 上，使用相對路徑讓 _redirects 代理處理（避免混合內容問題）
-        const DEFAULT_BACKEND = isLocal ? 'http://localhost:2999' : '';
+        const DEFAULT_BACKEND = isLocal ? 'http://localhost:2998' : '';
         const finalApiBase = window.API_BASE_URL || DEFAULT_BACKEND;
         
         if (finalApiBase) {
             apiStatus.style.display = 'block';
             apiStatus.className = 'alert alert-info';
             apiUrl.textContent = finalApiBase;
+            apiUrl.className = 'text-primary';
+        } else if (BACKEND_IPS && BACKEND_IPS.length > 0) {
+            // 如果未設定但有多個後端 IP，顯示故障轉移模式
+            apiStatus.style.display = 'block';
+            apiStatus.className = 'alert alert-info';
+            apiUrl.textContent = `故障轉移模式（${BACKEND_IPS.length} 個後端：${BACKEND_IPS.join(', ')})`;
             apiUrl.className = 'text-primary';
         } else {
             apiStatus.style.display = 'block';
@@ -186,9 +205,66 @@
                 localStorage.setItem('backend_api_url', cleanUrl);
                 window.location.reload();
             } else {
-                alert('請輸入有效的後端 URL');
+                // 如果留空，清除設定，使用故障轉移模式
+                localStorage.removeItem('backend_api_url');
+                window.location.reload();
             }
         };
+
+        // 嘗試連接到後端的函數（支援故障轉移）
+        async function trySyncWithFallback(apiBase, backendIPs) {
+            // 如果指定了 API_BASE，直接使用
+            if (apiBase) {
+                return await fetch(`${apiBase}/api/sync`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+            }
+            
+            // 如果沒有指定，嘗試所有後端 IP（故障轉移）
+            if (backendIPs && backendIPs.length > 0) {
+                const errors = [];
+                for (let i = 0; i < backendIPs.length; i++) {
+                    const ip = backendIPs[i];
+                    const url = `http://${ip}:${BACKEND_PORT}/api/sync`;
+                    try {
+                        // 建立 AbortController 來實現超時
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 5000);
+                        
+                        const response = await fetch(url, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            signal: controller.signal
+                        });
+                        
+                        clearTimeout(timeoutId);
+                        
+                        // 如果成功，返回響應
+                        if (response.ok || response.status < 500) {
+                            return response;
+                        }
+                        // 如果是客戶端錯誤（4xx），不繼續嘗試其他 IP
+                        if (response.status >= 400 && response.status < 500) {
+                            return response;
+                        }
+                        errors.push(`${ip}: ${response.status}`);
+                    } catch (error) {
+                        errors.push(`${ip}: ${error.message}`);
+                        // 繼續嘗試下一個 IP
+                        continue;
+                    }
+                }
+                // 所有 IP 都失敗，拋出錯誤
+                throw new Error(`所有後端都無法連接：${errors.join('; ')}`);
+            }
+            
+            throw new Error('後端 API 網址未設定。');
+        }
 
         syncBtn.addEventListener('click', async function() {
             // 禁用按鈕
@@ -201,17 +277,8 @@
             resultMessage.style.display = 'none';
             
             try {
-                // 檢查 API_BASE 是否設定
-                if (!API_BASE) {
-                    throw new Error('後端 API 網址未設定。請確認後端已啟動並設定正確的 API 網址。');
-                }
-                
-                const response = await fetch(`${API_BASE}/api/sync`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
+                // 使用故障轉移功能嘗試連接後端
+                const response = await trySyncWithFallback(API_BASE, BACKEND_IPS);
                 
                 // 檢查響應狀態
                 if (!response.ok) {
@@ -288,7 +355,7 @@
                         <p class="mt-2 mb-0"><small>
                             <strong>解決方法：</strong><br>
                             1. 確認後端已啟動（執行 start_backend.bat）<br>
-                            2. 如果是本地環境，前端會自動使用 http://localhost:2999<br>
+                            2. 如果是本地環境，前端會自動使用 http://localhost:2998<br>
                             3. 如果是 Netlify，請設定環境變數 API_BASE_URL
                         </small></p>
                     `;

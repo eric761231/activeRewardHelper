@@ -7,13 +7,22 @@
 # 如果後端只支援 HTTP，需要使用其他方案（如 ngrok 或部署後端到支援 HTTPS 的平台）
 
 # 方案 1：如果後端支援 HTTPS（推薦）
-# /api/*  https://151.242.53.189:2999/api/:splat  200
+# /api/*  https://151.242.53.189:2998/api/:splat  200
 
 # 方案 2：如果後端只支援 HTTP，使用 ngrok 或其他 HTTPS 代理
 # /api/*  https://your-ngrok-url.ngrok.io/api/:splat  200
 
 # 目前設定：使用 HTTP（可能會有混合內容問題，建議改用 HTTPS）
-/api/*  http://151.242.53.189:2999/api/:splat  200
+# 注意：Netlify 代理只能指向單一後端，如需多後端支援，請在前端實現故障轉移
+# 預設使用最後一個 IP，前端會自動嘗試所有 IP
+/api/*  http://151.242.53.189:2998/api/:splat  200
+
+# 如果需要，可以為每個 IP 設定不同的路徑（可選）
+# /api1/*  http://151.242.53.185:2998/api/:splat  200
+# /api2/*  http://151.242.53.186:2998/api/:splat  200
+# /api3/*  http://151.242.53.187:2998/api/:splat  200
+# /api4/*  http://151.242.53.188:2998/api/:splat  200
+# /api5/*  http://151.242.53.189:2998/api/:splat  200
 
 # 靜態資源
 /favicon.svg  /netlify/favicon.svg  200

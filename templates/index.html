@@ -107,8 +107,8 @@
         const loadingSpinner = document.getElementById('loadingSpinner');
         const resultMessage = document.getElementById('resultMessage');
 
-        // 若使用 Live Server（例如 port 5500）開啟靜態頁面，改為呼叫本機 Flask (port 2999)
-        const API_BASE = (window.location.port === '5500') ? 'http://127.0.0.1:2999' : '';
+        // 若使用 Live Server（例如 port 5500）開啟靜態頁面，改為呼叫本機 Flask (port 2998)
+        const API_BASE = (window.location.port === '5500') ? 'http://127.0.0.1:2998' : '';
 
         syncBtn.addEventListener('click', async function() {
             // 禁用按鈕

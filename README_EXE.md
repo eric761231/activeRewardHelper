@@ -52,7 +52,7 @@ config/                     # 需要與 EXE 放在同一目錄
 
 3. **執行**：
    - 雙擊 `activeRewardHelper.exe`
-   - 應用程式會啟動在 `http://localhost:2999`
+   - 應用程式會啟動在 `http://localhost:2998`
 
 ## 注意事項
 
