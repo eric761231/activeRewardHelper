@@ -59,7 +59,8 @@ class GoogleSheetsService:
     
     def get_unconfirmed_rows(self):
         """
-        取得未確認的資料列（已確認欄位不是 V 的資料）
+        取得未確認的資料列（「已發放」欄位為空白的資料）
+        只處理空白欄位，跳過已有 V 或其他文字的資料
         假設第一列是標題，第二列開始是資料
         需要根據實際試算表結構調整欄位索引
         """
@@ -78,23 +79,16 @@ class GoogleSheetsService:
                     break
             
             if confirmed_col_idx is None:
-                logger.warning("找不到「已發放」欄位，將處理所有資料")
-                # 如果找不到確認欄位，返回所有資料（除了標題列）
-                unconfirmed_rows = []
-                for row_idx, row in enumerate(all_values[1:], start=2):
-                    unconfirmed_rows.append({
-                        'row_number': row_idx,
-                        'data': row,
-                        'confirmed_col_idx': None
-                    })
-                return unconfirmed_rows, headers, confirmed_col_idx
+                logger.warning("找不到「已發放」欄位，無法判斷哪些資料需要處理")
+                # 如果找不到確認欄位，返回空列表（避免誤處理）
+                return [], headers, None
             
             unconfirmed_rows = []
             for row_idx, row in enumerate(all_values[1:], start=2):  # start=2 因為第一列是標題
                 if len(row) > confirmed_col_idx:
-                    confirmed_value = row[confirmed_col_idx].strip().upper()
-                    # 只處理「已發放」欄位不是 'V' 的資料
-                    if confirmed_value != 'V':
+                    confirmed_value = row[confirmed_col_idx].strip()
+                    # 只處理「已發放」欄位為空白的資料（跳過已有 V 或其他文字的資料）
+                    if not confirmed_value or confirmed_value == '':
                         unconfirmed_rows.append({
                             'row_number': row_idx,
                             'data': row,
