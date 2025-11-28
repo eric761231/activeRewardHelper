@@ -1,15 +1,19 @@
 # Netlify redirects file
 # 將 API 請求代理到後端伺服器
-# 請將下面的 URL 替換為您的後端 API 網址（例如：Render、Railway、Heroku 等）
+# 使用代理可以避免混合內容（Mixed Content）問題
 
-# 範例：如果後端部署在 Render
-# /api/*  https://your-app.onrender.com/api/:splat  200
+# 代理 API 請求到後端伺服器
+# 注意：Netlify 代理只支援 HTTPS，所以後端必須支援 HTTPS 或使用 HTTP（不推薦）
+# 如果後端只支援 HTTP，需要使用其他方案（如 ngrok 或部署後端到支援 HTTPS 的平台）
 
-# 範例：如果後端部署在 Railway
-# /api/*  https://your-app.railway.app/api/:splat  200
+# 方案 1：如果後端支援 HTTPS（推薦）
+# /api/*  https://151.242.53.189:2999/api/:splat  200
 
-# 請替換下面的 URL 為您的實際後端網址
-/api/*  https://REPLACE_WITH_YOUR_BACKEND_URL/api/:splat  200
+# 方案 2：如果後端只支援 HTTP，使用 ngrok 或其他 HTTPS 代理
+# /api/*  https://your-ngrok-url.ngrok.io/api/:splat  200
+
+# 目前設定：使用 HTTP（可能會有混合內容問題，建議改用 HTTPS）
+/api/*  http://151.242.53.189:2999/api/:splat  200
 
 # 靜態資源
 /favicon.svg  /netlify/favicon.svg  200

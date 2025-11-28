@@ -138,11 +138,12 @@
         // 例如：const API_BASE = 'https://your-backend.onrender.com';
         
         // 預設後端 URL（如果未設定）
-        const DEFAULT_BACKEND_URL = 'http://151.242.53.189:2999';
+        // 在 Netlify 上使用相對路徑（空字串），讓 _redirects 代理處理
+        // 本地環境使用 localhost
+        const DEFAULT_BACKEND_URL = isLocal ? 'http://localhost:2999' : '';
         
         // API_BASE 會在後面重新定義，這裡先保留變數聲明
-        let API_BASE = window.API_BASE_URL || 
-                        (isLocal ? 'http://localhost:2999' : DEFAULT_BACKEND_URL);
+        let API_BASE = window.API_BASE_URL || DEFAULT_BACKEND_URL;
 
         // 顯示 API 連線狀態
         const apiStatus = document.getElementById('apiStatus');
@@ -156,9 +157,9 @@
         }
         
         // 重新計算 API_BASE（考慮 localStorage 的值）
-        const DEFAULT_BACKEND = 'http://151.242.53.189:2999';
-        const finalApiBase = window.API_BASE_URL || 
-                            (isLocal ? 'http://localhost:2999' : DEFAULT_BACKEND);
+        // 在 Netlify 上，使用相對路徑讓 _redirects 代理處理（避免混合內容問題）
+        const DEFAULT_BACKEND = isLocal ? 'http://localhost:2999' : '';
+        const finalApiBase = window.API_BASE_URL || DEFAULT_BACKEND;
         
         if (finalApiBase) {
             apiStatus.style.display = 'block';
