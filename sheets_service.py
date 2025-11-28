@@ -77,7 +77,7 @@ class GoogleSheetsService:
     def _authorize(self):
         """
         執行 OAuth 2.0 授權流程
-        根據環境自動選擇桌面應用程式或 Web 應用程式流程
+        自動偵測憑證檔案類型並使用對應的流程
         """
         client_secrets_file = Path(self.config.GOOGLE_SHEETS_CREDENTIALS_FILE)
         
@@ -88,20 +88,100 @@ class GoogleSheetsService:
                 "詳細說明請參考：OAUTH_SETUP.md"
             )
         
-        # 檢查是否在 Render 或其他 Web 環境
-        is_web_env = os.getenv('RENDER') is not None or os.getenv('WEB_OAUTH') == 'true'
-        render_url = os.getenv('RENDER_EXTERNAL_URL', '')
+        # 檢查憑證檔案類型
+        try:
+            with open(client_secrets_file, 'r', encoding='utf-8') as f:
+                secrets = json.load(f)
+            
+            # 偵測憑證檔案類型
+            if 'installed' in secrets:
+                # 桌面應用程式類型
+                logger.info("偵測到桌面應用程式類型的憑證檔案")
+                return self._authorize_desktop(client_secrets_file)
+            elif 'web' in secrets:
+                # 網頁應用程式類型
+                logger.info("偵測到網頁應用程式類型的憑證檔案，使用 Web 流程")
+                return self._authorize_web_local(client_secrets_file)
+            else:
+                raise ValueError("無法識別憑證檔案類型（應包含 'installed' 或 'web' 鍵）")
+        except json.JSONDecodeError as e:
+            raise ValueError(f"憑證檔案格式錯誤: {e}")
+    
+    def _authorize_web_local(self, client_secrets_file):
+        """網頁應用程式 OAuth 流程（本地開發，使用 localhost）"""
+        # 讀取憑證檔案以獲取重定向 URI
+        with open(client_secrets_file, 'r', encoding='utf-8') as f:
+            secrets = json.load(f)
         
-        if is_web_env and render_url:
-            # Web 應用程式流程（Render）
-            logger.info("偵測到 Web 環境，使用 Web 應用程式 OAuth 流程")
-            raise RuntimeError(
-                "在 Web 環境中，請先訪問 /api/oauth/authorize 進行授權。\n"
-                f"授權 URL: {render_url}/api/oauth/authorize"
-            )
-        else:
-            # 桌面應用程式流程（本地開發）
-            return self._authorize_desktop(client_secrets_file)
+        # 從憑證檔案中獲取第一個重定向 URI，或使用預設值
+        redirect_uris = secrets.get('web', {}).get('redirect_uris', [])
+        
+        # 嘗試多個固定端口
+        fixed_ports = [8080, 8081, 8082, 8083, 8084]
+        creds = None
+        
+        for port in fixed_ports:
+            redirect_uri = f"http://localhost:{port}/"
+            
+            # 檢查該 URI 是否在 Google Cloud Console 中註冊
+            if redirect_uri not in redirect_uris and f"http://localhost:{port}" not in redirect_uris:
+                logger.debug(f"端口 {port} 的 URI 未在憑證檔案中，跳過")
+                continue
+            
+            try:
+                logger.info(f"嘗試使用端口 {port}，redirect_uri: {redirect_uri}")
+                
+                flow = Flow.from_client_secrets_file(
+                    str(client_secrets_file),
+                    SCOPES,
+                    redirect_uri=redirect_uri
+                )
+                
+                # 使用 run_local_server 但指定 redirect_uri
+                creds = flow.run_local_server(port=port, open_browser=True)
+                logger.info(f"成功使用端口 {port}")
+                break
+            except OSError as e:
+                logger.debug(f"端口 {port} 被占用: {e}")
+                continue
+            except Exception as e:
+                logger.warning(f"端口 {port} 授權失敗: {e}")
+                continue
+        
+        if not creds:
+            # 如果所有固定端口都失敗，嘗試使用憑證檔案中的第一個重定向 URI
+            if redirect_uris:
+                redirect_uri = redirect_uris[0]
+                logger.info(f"使用憑證檔案中的第一個 redirect_uri: {redirect_uri}")
+                
+                # 從 URI 中提取端口
+                import re
+                port_match = re.search(r':(\d+)', redirect_uri)
+                port = int(port_match.group(1)) if port_match else 8080
+                
+                flow = Flow.from_client_secrets_file(
+                    str(client_secrets_file),
+                    SCOPES,
+                    redirect_uri=redirect_uri
+                )
+                
+                try:
+                    creds = flow.run_local_server(port=port, open_browser=True)
+                except OSError:
+                    # 如果端口被占用，使用自動選擇
+                    logger.warning(f"端口 {port} 被占用，使用自動選擇端口")
+                    logger.warning("請確保 Google Cloud Console 中有該 URI")
+                    creds = flow.run_local_server(port=0, open_browser=True)
+            else:
+                raise ValueError(
+                    "憑證檔案中沒有設定重定向 URI。\n"
+                    "請在 Google Cloud Console 中添加重定向 URI，例如：\n"
+                    "- http://localhost:8080\n"
+                    "- http://localhost:8081"
+                )
+        
+        logger.info("授權成功！")
+        return creds
     
     def _authorize_desktop(self, client_secrets_file):
         """桌面應用程式 OAuth 流程（本地開發）"""
