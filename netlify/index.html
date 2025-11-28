@@ -75,8 +75,9 @@
                             <button class="btn btn-outline-secondary" type="button" onclick="setBackendUrl()">設定</button>
                         </div>
                         <small class="text-muted">
-                            可用後端 IP：151.242.53.185-189（自動故障轉移）<br>
-                            或手動指定單一後端 URL
+                            可用後端 IP：151.242.53.185-189（端口：2998，自動故障轉移）<br>
+                            或手動指定單一後端 URL（格式：http://IP:2998）<br>
+                            <button class="btn btn-sm btn-outline-secondary mt-1" type="button" onclick="clearBackendUrl()">清除已保存的設定</button>
                         </small>
                     </div>
                 </div>
@@ -166,7 +167,14 @@
         // 從 localStorage 讀取之前設定的後端 URL
         let savedBackendUrl = localStorage.getItem('backend_api_url');
         if (savedBackendUrl) {
-            window.API_BASE_URL = savedBackendUrl;
+            // 檢查是否包含舊端口 2999，如果是則清除（強制使用新設定）
+            if (savedBackendUrl.includes(':2999')) {
+                console.log('偵測到舊端口 2999，清除 localStorage 設定');
+                localStorage.removeItem('backend_api_url');
+                savedBackendUrl = null;
+            } else {
+                window.API_BASE_URL = savedBackendUrl;
+            }
         }
         
         // 重新計算 API_BASE（考慮 localStorage 的值）
@@ -208,12 +216,25 @@
         window.setBackendUrl = function() {
             const url = document.getElementById('backendUrl').value.trim();
             if (url) {
+                // 檢查端口是否正確
+                if (url.includes(':2999')) {
+                    alert('警告：檢測到舊端口 2999，請使用端口 2998。\n例如：http://151.242.53.188:2998');
+                    return;
+                }
                 // 移除尾部的斜線
                 const cleanUrl = url.replace(/\/$/, '');
                 localStorage.setItem('backend_api_url', cleanUrl);
                 window.location.reload();
             } else {
                 // 如果留空，清除設定，使用故障轉移模式
+                localStorage.removeItem('backend_api_url');
+                window.location.reload();
+            }
+        };
+        
+        // 清除後端 URL 設定的函數
+        window.clearBackendUrl = function() {
+            if (confirm('確定要清除已保存的後端 URL 設定嗎？')) {
                 localStorage.removeItem('backend_api_url');
                 window.location.reload();
             }
