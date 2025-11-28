@@ -180,11 +180,19 @@
             apiUrl.textContent = finalApiBase;
             apiUrl.className = 'text-primary';
         } else if (BACKEND_IPS && BACKEND_IPS.length > 0) {
-            // 如果未設定但有多個後端 IP，顯示故障轉移模式
+            // 如果未設定但有多個後端 IP
             apiStatus.style.display = 'block';
-            apiStatus.className = 'alert alert-info';
-            apiUrl.textContent = `故障轉移模式（${BACKEND_IPS.length} 個後端：${BACKEND_IPS.join(', ')})`;
-            apiUrl.className = 'text-primary';
+            if (isLocal) {
+                // 本地環境：顯示故障轉移模式
+                apiStatus.className = 'alert alert-info';
+                apiUrl.textContent = `故障轉移模式（${BACKEND_IPS.length} 個後端：${BACKEND_IPS.join(', ')})`;
+                apiUrl.className = 'text-primary';
+            } else {
+                // Netlify 環境：使用代理模式（避免混合內容問題）
+                apiStatus.className = 'alert alert-info';
+                apiUrl.textContent = `代理模式（透過 Netlify 代理，支援 ${BACKEND_IPS.length} 個後端故障轉移）`;
+                apiUrl.className = 'text-primary';
+            }
         } else {
             apiStatus.style.display = 'block';
             apiStatus.className = 'alert alert-warning';
@@ -212,7 +220,7 @@
         };
 
         // 嘗試連接到後端的函數（支援故障轉移）
-        async function trySyncWithFallback(apiBase, backendIPs) {
+        async function trySyncWithFallback(apiBase, backendIPs, isLocalEnv) {
             // 如果指定了 API_BASE，直接使用
             if (apiBase) {
                 return await fetch(`${apiBase}/api/sync`, {
@@ -223,8 +231,51 @@
                 });
             }
             
-            // 如果沒有指定，嘗試所有後端 IP（故障轉移）
-            if (backendIPs && backendIPs.length > 0) {
+            // 在 Netlify（HTTPS）環境下，使用相對路徑讓 _redirects 代理處理
+            // 避免混合內容問題，並支援多後端故障轉移
+            if (!isLocalEnv) {
+                // 嘗試多個後端路徑（故障轉移）
+                const apiPaths = ['/api1', '/api2', '/api3', '/api4', '/api'];
+                const errors = [];
+                
+                for (let i = 0; i < apiPaths.length; i++) {
+                    const apiPath = apiPaths[i];
+                    try {
+                        // 建立 AbortController 來實現超時
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 5000);
+                        
+                        const response = await fetch(`${apiPath}/sync`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            signal: controller.signal
+                        });
+                        
+                        clearTimeout(timeoutId);
+                        
+                        // 如果成功，返回響應
+                        if (response.ok || response.status < 500) {
+                            return response;
+                        }
+                        // 如果是客戶端錯誤（4xx），不繼續嘗試其他路徑
+                        if (response.status >= 400 && response.status < 500) {
+                            return response;
+                        }
+                        errors.push(`${apiPath}: ${response.status}`);
+                    } catch (error) {
+                        errors.push(`${apiPath}: ${error.message}`);
+                        // 繼續嘗試下一個路徑
+                        continue;
+                    }
+                }
+                // 所有路徑都失敗，拋出錯誤
+                throw new Error(`所有後端都無法連接：${errors.join('; ')}`);
+            }
+            
+            // 本地環境下，嘗試所有後端 IP（故障轉移）
+            if (backendIPs && backendIPs.length > 0 && isLocalEnv) {
                 const errors = [];
                 for (let i = 0; i < backendIPs.length; i++) {
                     const ip = backendIPs[i];
@@ -278,7 +329,7 @@
             
             try {
                 // 使用故障轉移功能嘗試連接後端
-                const response = await trySyncWithFallback(API_BASE, BACKEND_IPS);
+                const response = await trySyncWithFallback(API_BASE, BACKEND_IPS, isLocal);
                 
                 // 檢查響應狀態
                 if (!response.ok) {
