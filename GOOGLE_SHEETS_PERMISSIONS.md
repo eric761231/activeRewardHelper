@@ -15,7 +15,7 @@ gspread.exceptions.APIError: {'code': 403, 'message': 'The caller does not have 
 
 您的服務帳號 Email 是：
 ```
-active-reward@quickstart-1601643265968.iam.gserviceaccount.com
+funotech002@green-bedrock-479611-a8.iam.gserviceaccount.com
 ```
 
 **快速查看方法**：
@@ -31,12 +31,13 @@ active-reward@quickstart-1601643265968.iam.gserviceaccount.com
 2. **點擊右上角的「分享」按鈕**（Share）
 
 3. **在「新增使用者和群組」欄位中**：
-   - 輸入服務帳號 Email：`active-reward@quickstart-1601643265968.iam.gserviceaccount.com`
+   - 輸入服務帳號 Email：`funotech002@green-bedrock-479611-a8.iam.gserviceaccount.com`
    - **重要**：不要勾選「通知人員」（Notify people），因為這是服務帳號，無法接收通知
 
 4. **設定權限**：
    - 選擇「編輯者」（Editor）權限
    - 這樣服務帳號才能讀取和更新 Sheet 中的資料
+   - **注意**：如果建立專案的帳號本身已有編輯權限，通常不需要額外分享，但建議確認服務帳號也有權限
 
 5. **點擊「完成」（Done）**
 
